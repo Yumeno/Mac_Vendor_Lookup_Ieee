@@ -57,7 +57,6 @@ class RegistryRow:
     assignment: str
     address: str
     country: str
-    raw: Dict[str, str]
 
 
 @dataclass
@@ -155,7 +154,6 @@ def load_registry(spec: RegistrySpec) -> Dict[str, RegistryRow]:
                 assignment=assignment,
                 address=address,
                 country=country,
-                raw=row,
             )
 
     return table
