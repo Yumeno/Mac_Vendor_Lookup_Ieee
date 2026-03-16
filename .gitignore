@@ -19,6 +19,10 @@ ENV/
 .coverage
 htmlcov/
 
+# Claude Code worktrees
+
+.claude/worktrees/
+
 # OS / editor
 
 .DS_Store
