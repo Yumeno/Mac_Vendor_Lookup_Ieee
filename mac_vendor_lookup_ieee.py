@@ -248,7 +248,7 @@ def enrich_csv(
                     row["ieee_country"] = ""
                     row["lookup_status"] = "not_found"
                     row["lookup_note"] = "no MA-S/MA-M/MA-L prefix match"
-            except Exception as e:
+            except (ValueError, KeyError) as e:
                 row["normalized_mac"] = ""
                 row["is_locally_administered"] = ""
                 row["ieee_registry"] = ""
