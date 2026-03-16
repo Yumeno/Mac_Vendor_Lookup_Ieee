@@ -277,18 +277,38 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
 
-    tables = build_registry_tables(
-        ma_l_path=args.ma_l,
-        ma_m_path=args.ma_m,
-        ma_s_path=args.ma_s,
-    )
+    # ファイル存在チェック
+    for label, path in [
+        ("入力 CSV", args.input),
+        ("MA-L CSV", args.ma_l),
+        ("MA-M CSV", args.ma_m),
+        ("MA-S CSV", args.ma_s),
+    ]:
+        if not path.is_file():
+            print(f"error: {label} が見つかりません: {path}", file=sys.stderr)
+            return 1
 
-    enrich_csv(
-        input_csv=args.input,
-        output_csv=args.output,
-        mac_column=args.mac_column,
-        tables=tables,
-    )
+    # 入出力同一パスのガード
+    if args.input.resolve() == args.output.resolve():
+        print("error: 入力と出力に同じファイルを指定できません", file=sys.stderr)
+        return 1
+
+    try:
+        tables = build_registry_tables(
+            ma_l_path=args.ma_l,
+            ma_m_path=args.ma_m,
+            ma_s_path=args.ma_s,
+        )
+
+        enrich_csv(
+            input_csv=args.input,
+            output_csv=args.output,
+            mac_column=args.mac_column,
+            tables=tables,
+        )
+    except (OSError, ValueError, csv.Error) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
     print(f"done: {args.output}")
     return 0
