@@ -1,0 +1,65 @@
+# Python bytecode / cache
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local data files (do not publish real MAC lists or enriched outputs)
+
+macs.csv
+macs_with_ieee.csv
+*.local.csv
+*.private.csv
+sample_private*.csv
+
+# Generated outputs
+
+output/
+out/
+dist/
+build/
+
+# Logs
+
+*.log
+logs/
+
+# Secrets / local config
+
+.env
+.env.*
+*.secret
+*.secrets
+config.local.*
+
+# Optional: downloaded IEEE source CSVs
+
+# Uncomment these lines if you do NOT want to commit the official IEEE registry files
+
+# ma-l.csv
+
+# ma-m.csv
+
+# ma-s.csv
