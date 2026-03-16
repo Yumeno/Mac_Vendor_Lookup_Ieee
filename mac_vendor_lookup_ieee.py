@@ -37,7 +37,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
 
 NON_HEX_RE = re.compile(r"[^0-9A-Fa-f]")
 
@@ -83,7 +83,7 @@ def is_locally_administered(mac12: str) -> bool:
     return bool(first_octet & 0b00000010)
 
 
-def candidate_value(row: Dict[str, str], keys: Iterable[str]) -> str:
+def candidate_value(row: dict[str, str], keys: Iterable[str]) -> str:
     """複数候補列から最初に見つかった値を返す。"""
     for key in keys:
         value = row.get(key)
@@ -94,7 +94,7 @@ def candidate_value(row: Dict[str, str], keys: Iterable[str]) -> str:
     return ""
 
 
-def extract_prefix(row: Dict[str, str], prefix_hex_len: int) -> str:
+def extract_prefix(row: dict[str, str], prefix_hex_len: int) -> str:
     """IEEE CSV の行からプレフィックスを抽出する。"""
     prefix_candidates = (
         "Assignment",
@@ -115,9 +115,9 @@ def extract_prefix(row: Dict[str, str], prefix_hex_len: int) -> str:
     return ""
 
 
-def load_registry(spec: RegistrySpec) -> Dict[str, RegistryRow]:
+def load_registry(spec: RegistrySpec) -> dict[str, RegistryRow]:
     """IEEE 公開 CSV から prefix -> RegistryRow の辞書を構築する。"""
-    table: Dict[str, RegistryRow] = {}
+    table: dict[str, RegistryRow] = {}
 
     with spec.csv_path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -159,7 +159,7 @@ def load_registry(spec: RegistrySpec) -> Dict[str, RegistryRow]:
     return table
 
 
-def build_registry_tables(ma_l_path: Path, ma_m_path: Path, ma_s_path: Path) -> List[Tuple[RegistrySpec, Dict[str, RegistryRow]]]:
+def build_registry_tables(ma_l_path: Path, ma_m_path: Path, ma_s_path: Path) -> list[tuple[RegistrySpec, dict[str, RegistryRow]]]:
     """MA-S → MA-M → MA-L の順で照合するためのテーブル群を返す。"""
     specs = [
         RegistrySpec(name="MA-S", prefix_hex_len=9, csv_path=ma_s_path),
@@ -167,13 +167,13 @@ def build_registry_tables(ma_l_path: Path, ma_m_path: Path, ma_s_path: Path) -> 
         RegistrySpec(name="MA-L", prefix_hex_len=6, csv_path=ma_l_path),
     ]
 
-    tables: List[Tuple[RegistrySpec, Dict[str, RegistryRow]]] = []
+    tables: list[tuple[RegistrySpec, dict[str, RegistryRow]]] = []
     for spec in specs:
         tables.append((spec, load_registry(spec)))
     return tables
 
 
-def lookup_mac(mac12: str, tables: List[Tuple[RegistrySpec, Dict[str, RegistryRow]]]) -> Optional[LookupHit]:
+def lookup_mac(mac12: str, tables: list[tuple[RegistrySpec, dict[str, RegistryRow]]]) -> LookupHit | None:
     """MAC を最長一致で照合し、ヒットがあれば返す。"""
     for spec, table in tables:
         prefix = mac12[: spec.prefix_hex_len]
@@ -194,8 +194,8 @@ def enrich_csv(
     input_csv: Path,
     output_csv: Path,
     mac_column: str,
-    tables: List[Tuple[RegistrySpec, Dict[str, RegistryRow]]],
-) -> None:
+    tables: list[tuple[RegistrySpec, dict[str, RegistryRow]]],
+) -> dict[str, int]:
     """入力 CSV に IEEE 割当情報を付与して出力する。"""
     with input_csv.open("r", encoding="utf-8-sig", newline="") as fin, \
          output_csv.open("w", encoding="utf-8", newline="") as fout:
@@ -222,7 +222,9 @@ def enrich_csv(
         writer = csv.DictWriter(fout, fieldnames=fieldnames)
         writer.writeheader()
 
+        counts = {"total": 0, "matched": 0, "not_found": 0, "error": 0}
         for row in reader:
+            counts["total"] += 1
             raw_mac = row.get(mac_column, "")
             try:
                 mac12 = normalize_mac(raw_mac)
@@ -239,6 +241,7 @@ def enrich_csv(
                     row["ieee_country"] = hit.country
                     row["lookup_status"] = "matched"
                     row["lookup_note"] = ""
+                    counts["matched"] += 1
                 else:
                     row["ieee_registry"] = ""
                     row["ieee_prefix"] = ""
@@ -248,6 +251,7 @@ def enrich_csv(
                     row["ieee_country"] = ""
                     row["lookup_status"] = "not_found"
                     row["lookup_note"] = "no MA-S/MA-M/MA-L prefix match"
+                    counts["not_found"] += 1
             except (ValueError, KeyError) as e:
                 row["normalized_mac"] = ""
                 row["is_locally_administered"] = ""
@@ -259,11 +263,14 @@ def enrich_csv(
                 row["ieee_country"] = ""
                 row["lookup_status"] = "error"
                 row["lookup_note"] = str(e)
+                counts["error"] += 1
 
             writer.writerow(row)
 
+    return counts
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MAC アドレス一覧に IEEE MA-S/MA-M/MA-L 情報を付与する")
     parser.add_argument("--input", required=True, type=Path, help="入力 CSV パス")
     parser.add_argument("--output", required=True, type=Path, help="出力 CSV パス")
@@ -274,7 +281,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     # ファイル存在チェック
@@ -300,7 +307,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             ma_s_path=args.ma_s,
         )
 
-        enrich_csv(
+        counts = enrich_csv(
             input_csv=args.input,
             output_csv=args.output,
             mac_column=args.mac_column,
@@ -310,7 +317,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    print(f"done: {args.output}")
+    print(
+        f"done: {args.output}"
+        f"  (total={counts['total']}"
+        f" matched={counts['matched']}"
+        f" not_found={counts['not_found']}"
+        f" error={counts['error']})"
+    )
     return 0
 
 
